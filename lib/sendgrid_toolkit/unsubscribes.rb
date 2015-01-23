@@ -29,7 +29,14 @@ module SendgridToolkit
     # https://api.sendgrid.com/v3/asm/groups/:group_id/suppressions
     def add_to_suppression_group(group_id, options = {})
       options[:v3] = true
-      api_post("asm/groups/#{group_id}/suppressions", nil, options)
+      response = api_post("asm/groups/#{group_id}/suppressions", nil, options)
+      failure = if response['errors']
+        response['errors'].any?{|error| error['message'].include?('already exists')}
+      else
+        false
+      end
+      raise UnsubscribeEmailAlreadyExists if failure
+      response
     end
   end
 end
