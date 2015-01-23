@@ -11,11 +11,19 @@ module SendgridToolkit
 
     protected
 
-    def api_post(module_name, action_name, opts = {})
+    def api_post(module_name, action_name=nil, opts = {})
       base_path = compose_base_path(module_name, action_name)
-      response = HTTParty.post("https://#{SendgridToolkit.base_uri}/#{base_path}.json?",
-                               :query => get_credentials.merge(opts),
-                               :format => :json)
+      auth = Base64.strict_encode64("#{@api_user}:#{@api_key}")
+      response = if opts[:v3] == true
+        HTTParty.post("https://api.sendgrid.com/v3/#{base_path}",
+                      :headers => {"Authorization" => "Basic #{auth}", "Content-Type" => "application/json"},
+                      :body => opts.to_json)
+      else
+        HTTParty.post("https://#{SendgridToolkit.base_uri}/#{base_path}.json?",
+                      :query => get_credentials.merge(opts),
+                      :format => :json)
+      end
+
       if response.code > 401
         raise(SendgridToolkit::SendgridServerError, "The sengrid server returned an error. #{response.inspect}")
       elsif has_error?(response) and
@@ -34,7 +42,11 @@ module SendgridToolkit
     end
 
     def compose_base_path(module_name, action_name)
-      "#{module_name}.#{action_name}"
+      if action_name
+        "#{module_name}.#{action_name}"
+      else
+        "#{module_name}"
+      end
     end
 
     private
